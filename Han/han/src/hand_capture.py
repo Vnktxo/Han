@@ -2,73 +2,78 @@ import cv2
 import mediapipe as mp
 import csv
 import os
-from datetime import datetime
+import numpy as np
 
-# Set up MediaPipe
+# Paths
+image_dir = "data/hand_images/"
+csv_file = "data/hand_sign_data.csv"
+os.makedirs(image_dir, exist_ok=True)
+
+# Setup CSV if not exists
+if not os.path.exists(csv_file):
+    with open(csv_file, mode='w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            ["image_path", "label"] +
+            [f"x{i}" for i in range(21)] +
+            [f"y{i}" for i in range(21)] +
+            [f"z{i}" for i in range(21)]
+        )
+
+# Init MediaPipe Hands
 mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-
 hands = mp_hands.Hands(
     static_image_mode=False,
     max_num_hands=1,
     min_detection_confidence=0.8,
     min_tracking_confidence=0.8
 )
+mp_drawing = mp.solutions.drawing_utils
 
-# Create folders
-csv_path = os.path.join("data", "hand_landmarks.csv")
-img_dir = os.path.join("data", "images")
-os.makedirs(img_dir, exist_ok=True)
-
-# Create CSV if it doesn't exist
-if not os.path.exists(csv_path):
-    with open(csv_path, mode='w', newline='') as f:
-        writer = csv.writer(f)
-        header = ["image_path", "label"] + [
-            f"{coord}{i}" for i in range(21) for coord in ["x", "y", "z"]
-        ]
-        writer.writerow(header)
-
-# Start camera
+# Start webcam
 cap = cv2.VideoCapture(0)
+print("Press a-z to label hand sign, q to quit.")
 
-print("📸 Starting capture. Press 's' to save a frame, 'q' to quit.")
 while cap.isOpened():
-    success, frame = cap.read()
-    if not success:
+    ret, frame = cap.read()
+    if not ret:
         break
 
     frame = cv2.flip(frame, 1)
+    clean_frame = frame.copy()
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(rgb)
-
-    if results.multi_hand_landmarks:
-        for landmarks in results.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(frame, landmarks, 
-                                      mp_hands.HAND_CONNECTIONS)
-
-    cv2.imshow("Hand Capture", frame)
+    result = hands.process(rgb)
 
     key = cv2.waitKey(1) & 0xFF
 
-    if key == ord('s') and results.multi_hand_landmarks:
-        label = input("📝 Enter label for this gesture: ")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        img_filename = f"{label}_{timestamp}.jpg"
-        img_path = os.path.join(img_dir, img_filename)
-        cv2.imwrite(img_path, frame)
+    if result.multi_hand_landmarks:
+        for hand_landmarks in result.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(
+                frame, hand_landmarks, mp_hands.HAND_CONNECTIONS
+            )
 
-        for hand in results.multi_hand_landmarks:
-            data = [img_path, label]
-            for lm in hand.landmark:
-                data.extend([lm.x, lm.y, lm.z])
+            if key in range(97, 123):  # a-z keys
+                label = chr(key)
 
-            with open(csv_path, mode='a', newline='') as f:
-                csv.writer(f).writerow(data)
+                coords = np.array([
+                    [lm.x, lm.y, lm.z] for lm in hand_landmarks.landmark
+                ]).flatten()
 
-            print(f"✅ Saved {img_filename} and landmarks")
+                img_name = f"{label}_{len(os.listdir(image_dir))}.jpg"
+                img_path = os.path.join(image_dir, img_name)
+                cv2.imwrite(img_path, clean_frame)
 
-    elif key == ord('q'):
+                with open(csv_file, mode='a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([img_path, label] + coords.tolist())
+
+                print(f"[✅] Saved {img_name} with label '{label}'")
+                cv2.waitKey(300)
+
+    cv2.imshow("Hand Sign Capture", frame)
+
+    if key == ord('q'):
+        print("[👋] Quitting...")
         break
 
 cap.release()
