@@ -4,11 +4,22 @@ import csv
 import os
 import numpy as np
 
+# Get the directory of the current script
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Setup paths for data folder and CSV file
+data_dir = os.path.join(base_dir, "data")
+images_dir = os.path.join(data_dir, "face_images")
+csv_path = os.path.join(data_dir, "face_expression_data.csv")
+
+# Create directories if they don't exist
+os.makedirs(images_dir, exist_ok=True)
+
 # Setup MediaPipe Face Mesh
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
-drawing_spec = mp_drawing.DrawingSpec(color=(0, 255, 0), 
-                                      thickness=1, 
+drawing_spec = mp_drawing.DrawingSpec(color=(0, 255, 0),
+                                      thickness=1,
                                       circle_radius=1)
 
 face_mesh = mp_face_mesh.FaceMesh(
@@ -17,10 +28,6 @@ face_mesh = mp_face_mesh.FaceMesh(
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 )
-
-# Setup CSV
-csv_path = "data/face_expression_data.csv"
-os.makedirs("data/face_images", exist_ok=True)
 
 if not os.path.exists(csv_path):
     with open(csv_path, "w", newline="") as f:
@@ -77,8 +84,8 @@ while True:
                     [lm.x, lm.y, lm.z] for lm in face_landmarks.landmark
                 ]).flatten()
 
-                img_name = f"{label}_{len(os.listdir('data/face_images'))}.jpg"
-                img_path = os.path.join("data/face_images", img_name)
+                img_name = f"{label}_{len(os.listdir(images_dir))}.jpg"
+                img_path = os.path.join(images_dir, img_name)
                 cv2.imwrite(img_path, clean_frame)
 
                 with open(csv_path, "a", newline="") as f:

@@ -4,9 +4,15 @@ import csv
 import os
 import numpy as np
 
-# Paths
-image_dir = "data/hand_images/"
-csv_file = "data/hand_sign_data.csv"
+# Get the directory of the current script
+base_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Setup paths for data folder and CSV file
+data_dir = os.path.join(base_dir, "data")
+image_dir = os.path.join(data_dir, "hand_images")
+csv_file = os.path.join(data_dir, "hand_sign_data.csv")
+
+# Create directories if they don't exist
 os.makedirs(image_dir, exist_ok=True)
 
 # Setup CSV if not exists
